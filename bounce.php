@@ -27,14 +27,15 @@ class bounce extends rcube_plugin
       $this->add_texts('localization', true);
       $this->add_button(
         array(
+            'type'  => 'link',
+            'label' => 'bouncemessage',
             'command' => 'plugin.bounce.box',
             'title'   => 'bouncemessage',
             'domain'  =>  $this->ID,
-            'imagepas' => $skin_path.'/bounce_pas.png',
-            'imageact' => $skin_path.'/bounce_act.png',
-            'class' => 'bounce-ico'
+            'class' => 'bouncelink active',
+            'wrapper' => 'li',
         ),
-        'toolbar');
+        'forwardmenu');
 
       $this->add_hook('render_page', array($this, 'render_box'));
 
