@@ -54,10 +54,6 @@ class bounce extends rcube_plugin
 
     $message_charset = $rcmail->output->get_charset();
     $mailto = $this->rcmail_email_input_format(get_input_value('_to', RCUBE_INPUT_POST, TRUE, $message_charset), true);
-    $mailcc = $this->rcmail_email_input_format(get_input_value('_cc', RCUBE_INPUT_POST, TRUE, $message_charset), true);
-    $mailbcc = $this->rcmail_email_input_format(get_input_value('_bcc', RCUBE_INPUT_POST, TRUE, $message_charset), true);
-
-    //error_log("msg_uid - $msg_uid, mailto-$mailto, mailcc-$mailcc, mailbcc-$mailbcc \n",3,"/var/log/nginx/checkmail_error.log");
 
     if ($this->email_format_error) {
       $rcmail->output->show_message('emailformaterror', 'error', array('email' => $this->email_format_error));
@@ -65,44 +61,20 @@ class bounce extends rcube_plugin
       exit;
     }
 
-    $headers_old = $rcmail->storage->get_message_headers($msg_uid);
-    $a_recipients = array();
+    $a_recipients = array ();
     $a_recipients['To'] = $mailto;
-    if (!empty($mailcc)) $a_recipients['Cc'] = $mailcc;
-    if (!empty($mailbcc)) $a_recipients['Bcc'] = $mailbcc;
-
-    $resent = array();
-    $resent['From'] = $headers_old->to." <".$headers_old->to.">";
-    $resent['To'] = $mailto;
-    if (!empty($mailcc)) $resent['Cc'] = $mailcc;
-    if (!empty($mailbcc)) $resent['Bcc'] = $mailcc;
-    $resent['Message-Id'] = sprintf('<%s@%s>', md5(uniqid('rcmail'.mt_rand(),true)), $rcmail->config->mail_domain($_SESSION['imap_host']));
-    $resent['Date'] = date('r');
-    if ($rcmail->config->get('useragent'))
-      $resent['User-Agent'] = $rcmail->config->get('useragent');
-
-    foreach($resent as $k=>$v){
-       $resent_headers .= "Resent-$k: $v\n";
-    }
 
     $rcmail->storage->set_folder($mbox);
 
-    $msg_body = $rcmail->imap->get_raw_body($msg_uid);
+    $headers = $rcmail->storage->get_raw_headers($msg_uid);
 
-    $headers = $rcmail->imap->get_raw_headers($msg_uid);
-    $headers = $resent_headers.$headers;
+    $msg_body = $rcmail->storage->get_raw_body($msg_uid);
 
-    $a_body = preg_split('/[\r\n]+$/sm', $msg_body);
-    $c_body = count($a_body);
-    for ($i=1,$body='';$i<=$c_body;$body .= trim($a_body[$i])."\r\n\r\n",$i++)
-
-    /* need decision for DKIM-Signature */
-    /* $headers = preg_replace('/^DKIM-Signature/sm','Content-Description',$headers); */
+    // split mail at the first empty line, everything above is header, everything below message
+    $body = preg_split('/^[\s]+$/sm', $msg_body, 2)[1];
 
     if (!is_object($rcmail->smtp))
       $rcmail->smtp_init(true);
-
-    //error_log($rcmail->imap->get_raw_headers($msg_uid)." $msg_uid\n",3,"/var/log/nginx/checkmail_error.log");
 
     $sent = $rcmail->smtp->send_mail('', $a_recipients, $headers, $body);
     $smtp_response = $rcmail->smtp->get_response();
@@ -144,24 +116,7 @@ class bounce extends rcube_plugin
     $table->add('title', html::label('_to', Q(rcube_label('to'))));
     $table->add('editfield', html::tag('textarea', array('spellcheck' =>'false', 'id' => '_to', 'name' => '_to', 'cols' => '50', 'rows'=> '2', 'tabindex' => '2', 'class' => 'editfield', 'onclick' => 'select_field(this)')));
 
-    $table->set_row_attribs(array('id'=>'compose-cc'));
-    $table->add('title', html::a(array('href'=>'#cc', 'onclick'=>'return rcmail_ui.hide_header_form(\'cc\')'),
-                             html::img(array('src'=>$rcmail->config->get('skin_path').'/images/icons/minus.gif', 'title'=>rcube_label('delete'), 'alt'=>rcube_label('delete')))).'&nbsp;'.
-                             html::label('_cc', Q(rcube_label('cc'))));
-    $table->add(null, html::tag('textarea', array('spellcheck' =>'false', 'id' => '_cc', 'name' => '_cc', 'cols' => '50', 'rows'=> '2',  'value' => '', 'class' => 'editfield', 'onclick' => 'select_field(this)')));
-
-    $table->set_row_attribs(array('id'=>'compose-bcc'));
-    $table->add('title', html::a(array('href'=>'#bcc', 'onclick'=>'return rcmail_ui.hide_header_form(\'bcc\')'),
-                             html::img(array('src'=>$rcmail->config->get('skin_path').'/images/icons/minus.gif', 'title'=>rcube_label('delete'), 'alt'=>rcube_label('delete')))).'&nbsp;'.
-                             html::label('_bcc', Q(rcube_label('bcc'))));
-    $table->add(null, html::tag('textarea', array('spellcheck' =>'false', 'id' => '_bcc', 'cols' => '50', 'name' => '_bcc', 'rows'=> '2',  'value' => '', 'class' => 'editfield', 'onclick' => 'select_field(this)')));
-
-
     $table->add(null,null);
-    $table->add(formlinks,
-                html::a(array('href'=>'#cc', 'onclick'=>'return rcmail_ui.show_header_form(\'cc\')', 'id'=>'cc-link'), Q(rcube_label('addcc'))).
-                '<span class="separator">|</span>'.
-                html::a(array('href'=>'#bcc', 'onclick'=>'return rcmail_ui.show_header_form(\'bcc\')', 'id'=>'bcc-link'), Q(rcube_label('addbcc'))));
 
     $target_url = $_SERVER['REQUEST_URI'];
 
@@ -173,7 +128,7 @@ class bounce extends rcube_plugin
           $table->show() .
           html::div('buttons',
             $button->show(rcube_label('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
-            $button->show(Q($this->gettext('bounce')), array('class' => 'button mainaction', 
+            $button->show(Q($this->gettext('bounce')), array('class' => 'button mainaction',
               'onclick' => JS_OBJECT_NAME . ".command('plugin.bounce.send', this.bounceform)"))
           )
         )
