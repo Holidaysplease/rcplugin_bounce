@@ -16,10 +16,7 @@ function rcmail_bounce_send(prop) {
   if (!rcmail.gui_objects.bounceform)
     return false;
 
-  if (rcmail.env.uid)
-    var uid = rcmail.env.uid;
-  else
-    var uid = rcmail.get_single_uid();
+  var uids = rcmail.message_list ? rcmail.message_list.get_selection() : [rcmail.get_single_uid()];
 
   var input_to  = $('#_to').val();
   var input_cc  = $('#_cc').val();
@@ -34,11 +31,15 @@ function rcmail_bounce_send(prop) {
   } else {
     // all checks passed, send message
     lock = rcmail.set_busy(true, 'sendingmessage');
-    rcmail.http_post('plugin.bounce', '_uid='+uid+
-                                      '&_to='+urlencode(input_to)+
-                                      '&_cc='+urlencode(input_cc)+
-                                      '&_bcc='+urlencode(input_bcc)+
-                                      '&_mbox='+urlencode(rcmail.env.mailbox), lock);
+    
+    for (var i = 0; i < uids.length; i++) {
+      rcmail.http_post('plugin.bounce', '_uid='+uids[i]+
+                                        '&_to='+urlencode(input_to)+
+                                        '&_cc='+urlencode(input_cc)+
+                                        '&_bcc='+urlencode(input_bcc)+
+                                        '&_mbox='+urlencode(rcmail.env.mailbox), lock);
+    }
+    
     $('#bounce-box').hide();
     return true;
   }
@@ -72,8 +73,8 @@ if (window.rcmail) {
     // add event-listener to message list
     if (rcmail.message_list)
       rcmail.message_list.addEventListener('select', function(list){
-        rcmail.enable_command('plugin.bounce.box', (list.get_selection().length == 1 || rcmail.env.uid));
-        rcmail.enable_command('plugin.bounce.send', (list.get_selection().length == 1 || rcmail.env.uid));
+        rcmail.enable_command('plugin.bounce.box', (list.get_selection().length >= 1 || rcmail.env.uid));
+        rcmail.enable_command('plugin.bounce.send', (list.get_selection().length >= 1 || rcmail.env.uid));
       });
   })
 }
