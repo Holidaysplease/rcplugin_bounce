@@ -113,7 +113,7 @@ class bounce extends rcube_plugin
     $submit = new html_inputfield(array('type' => 'submit'));
     $table = new html_table(array('cols' => 2, 'id' => 'form'));
 
-    $table->add('title', html::label('_to', Q(rcube_label('to'))));
+    $table->add('title', html::label('_to', rcube::Q($rcmail->gettext('to'))));
     $table->add('editfield', html::tag('textarea', array('spellcheck' =>'false', 'id' => '_to', 'name' => '_to', 'cols' => '50', 'rows'=> '2', 'tabindex' => '2', 'class' => 'editfield', 'onclick' => 'select_field(this)')));
 
     $table->add(null,null);
@@ -123,12 +123,12 @@ class bounce extends rcube_plugin
     $rcmail->output->add_footer(html::div($attrib,
       $rcmail->output->form_tag(array('name' => 'bounceform', 'method' => 'post', 'action' => './', 'enctype' => 'multipart/form-data'),
         html::tag('input', array('type' => "hidden", 'name' => '_action', 'value' => 'bounce')) .
-        html::div('bounce-title', Q($this->gettext('bouncemessage'))) .
+        html::div('bounce-title', rcube::Q($this->gettext('bouncemessage'))) .
         html::div('bounce-body',
           $table->show() .
           html::div('buttons',
-            $button->show(rcube_label('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
-            $button->show(Q($this->gettext('bounce')), array('class' => 'button mainaction',
+            $button->show($rcmail->gettext('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
+            $button->show(rcube::Q($this->gettext('bounce')), array('class' => 'button mainaction',
               'onclick' => JS_OBJECT_NAME . ".command('plugin.bounce.send', this.bounceform)"))
           )
         )
