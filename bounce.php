@@ -42,10 +42,23 @@ class bounce extends rcube_plugin
     }
   }
 
+  function escapeHtml($str, $mode='strict', $newlines=true) {
+    return rcube_utils::rep_specialchars_output($str, 'html', $mode, $newlines);
+  }
+
+  function label($p, $domain=null) {
+    return rcmail::get_instance()->gettext($p, $domain);
+  }
+
+  function get_input_value($fname, $source, $allow_html=FALSE, $charset=NULL)
+  {
+    return rcube_utils::get_input_value($fname, $source, $allow_html, $charset);
+  }
+
   function request_action() {
     $this->add_texts('localization');
-    $msg_uid = get_input_value('_uid', RCUBE_INPUT_POST);
-    $mbox = get_input_value('_mbox', RCUBE_INPUT_POST);
+    $msg_uid = $this->get_input_value('_uid', rcube_utils::INPUT_POST);
+    $mbox = $this->get_input_value('_mbox', rcube_utils::INPUT_POST);
 
     $rcmail = rcmail::get_instance();
 
@@ -53,7 +66,7 @@ class bounce extends rcube_plugin
     $this->recipient_count = 0;
 
     $message_charset = $rcmail->output->get_charset();
-    $mailto = $this->rcmail_email_input_format(get_input_value('_to', RCUBE_INPUT_POST, TRUE, $message_charset), true);
+    $mailto = $this->rcmail_email_input_format($this->get_input_value('_to', rcube_utils::INPUT_POST, TRUE, $message_charset), true);
 
     if ($this->email_format_error) {
       $rcmail->output->show_message('emailformaterror', 'error', array('email' => $this->email_format_error));
@@ -113,7 +126,7 @@ class bounce extends rcube_plugin
     $submit = new html_inputfield(array('type' => 'submit'));
     $table = new html_table(array('cols' => 2, 'id' => 'form'));
 
-    $table->add('title', html::label('_to', Q(rcube_label('to'))));
+    $table->add('title', html::label('_to', $this->escapeHtml($this->label('to'))));
     $table->add('editfield', html::tag('textarea', array('spellcheck' =>'false', 'id' => '_to', 'name' => '_to', 'cols' => '50', 'rows'=> '2', 'tabindex' => '2', 'class' => 'editfield', 'onclick' => 'select_field(this)')));
 
     $table->add(null,null);
@@ -123,13 +136,13 @@ class bounce extends rcube_plugin
     $rcmail->output->add_footer(html::div($attrib,
       $rcmail->output->form_tag(array('name' => 'bounceform', 'method' => 'post', 'action' => './', 'enctype' => 'multipart/form-data'),
         html::tag('input', array('type' => "hidden", 'name' => '_action', 'value' => 'bounce')) .
-        html::div('bounce-title', Q($this->gettext('bouncemessage'))) .
+        html::div('bounce-title', $this->escapeHtml($this->gettext('bouncemessage'))) .
         html::div('bounce-body',
           $table->show() .
           html::div('buttons',
-            $button->show(rcube_label('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
-            $button->show(Q($this->gettext('bounce')), array('class' => 'button mainaction',
-              'onclick' => JS_OBJECT_NAME . ".command('plugin.bounce.send', this.bounceform)"))
+            $button->show($this->label('close'), array('class' => 'button', 'onclick' => "$('#$attrib[id]').hide()")) . ' ' .
+            $button->show($this->escapeHtml($this->gettext('bounce')), array('class' => 'button mainaction',
+              'onclick' => rcmail_output::JS_OBJECT_NAME . ".command('plugin.bounce.send', this.bounceform)"))
           )
         )
       )
@@ -156,7 +169,7 @@ class bounce extends rcube_plugin
     $mailto = trim(preg_replace($regexp, $replace, $mailto));
 
     $result = array();
-    $items = rcube_explode_quoted_string(',', $mailto);
+    $items = rcube_utils::explode_quoted_string(',', $mailto);
 
     foreach($items as $item) {
       $item = trim($item);
@@ -189,7 +202,7 @@ class bounce extends rcube_plugin
 
       // check address format
       $item = trim($item, '<>');
-      if ($item && $check && !check_email($item)) {
+      if ($item && $check && !rcube_utils::check_email($item, true)) {
         $this->email_format_error = $item;
         return;
       }
